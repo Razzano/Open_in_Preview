@@ -387,87 +387,86 @@
       return { t0x, t0y, s0 };
     }
     showWebviewOptions(webviewId, thisElement) {
-      let inputId = `input-${webviewId}`,
-          data = this.webviews.get(webviewId),
-          webview = data ? data.webview : undefined;
+      let inputId = `input-${webviewId}`;
+      let data = this.webviews.get(webviewId);
+      let webview = data ? data.webview : undefined;
       if (webview && document.getElementById(inputId) === null) {
         let input = null;
-		if (showUrlInput) {
-          input = document.createElement('input');
-          input.value = webview.src;
-          input.id = inputId;
-          input.setAttribute('class', 'url-input');
-          input.addEventListener('keydown', async event => {
-            if (event.key === 'Enter') {
-              let value = input.value;
-              const resolvedUrl = await UrlUtils.normalizeOrSearch(value, this.searchEngineUtils);
-              webview.src = resolvedUrl;
-            }
-          });
-        }
-        const fragment = document.createDocumentFragment(),
-          buttons = [
-            { content: this.iconUtils.back, 
-			  action: () => webview.back(),
-			  cls: 'back-button',
-			  tooltip: 'Back'
-			},
-            { content: this.iconUtils.forward,
-			  action: () => webview.forward(),
-			  cls: 'forward-button',
-			  tooltip: 'Forward'
-			},
-            { content: this.iconUtils.reload,
-			  action: () => webview.reload(),
-			  cls: 'reload-button',
-			  tooltip: 'Reload page'
-			},
-            { content: this.iconUtils.readerView,
-              action: this.showReaderView.bind(this, webview),
-              cls: 'reader-button',
-              tooltip: 'Toggle Reader View'
-            },
-            { content: this.iconUtils.newTab,
-              action: () =>
-				showUrlInput
-                ? this.openNewTab(inputId, true)
-                : this.openNewTabFromWebview(webview, true),
-				cls: 'newtab-button',
-                tooltip: 'Open in new tab'
-            },
-            { content: this.iconUtils.backgroundTab,
-              action: () =>
-				showUrlInput
-                  ? this.openNewTab(inputId, false)
-                  : this.openNewTabFromWebview(webview, false),
-				  cls: 'background-button',
-                  tooltip: 'Open in background tab'
-            },
-			{ content: this.iconUtils.toggleBtn,
-			  action: () => showUrlInput = !showUrlInput,
-			  cls: 'toggle-button',
-			  tooltip: 'Toggle url-input'
-            },
-			{ content: this.iconUtils.closeBtn,
-			  action: () => this.removePreview(webviewId),
-			  cls: 'close-button',
-			  tooltip: 'Close preview'
-            }
-          ];
-          buttons.forEach(button =>
-            fragment.appendChild(
-              this.createOptionsButton(
-                button.content,
-                button.action,
-                button.cls || '',
-                button.tooltip
-              )
-			)
-          );
-          if (input) fragment.appendChild(input);
-          thisElement.append(fragment);
-        }
+      if (showUrlInput) {
+        input = document.createElement('input');
+        input.value = webview.src;
+        input.id = inputId;
+        input.setAttribute('class', 'url-input');
+        input.addEventListener('keydown', async event => {
+          if (event.key === 'Enter') {
+            let value = input.value;
+            const resolvedUrl = await UrlUtils.normalizeOrSearch(value, this.searchEngineUtils);
+            webview.src = resolvedUrl;
+          }
+        });
       }
+      const fragment = document.createDocumentFragment(),
+        buttons = [
+          { content: this.iconUtils.back, 
+			action: () => webview.back(),
+			cls: 'back-button',
+			tooltip: 'Back'
+		  },
+          { content: this.iconUtils.forward,
+			action: () => webview.forward(),
+			cls: 'forward-button',
+			tooltip: 'Forward'
+		  },
+          { content: this.iconUtils.reload,
+			action: () => webview.reload(),
+			cls: 'reload-button',
+			tooltip: 'Reload page'
+		  },
+          { content: this.iconUtils.readerView,
+            action: this.showReaderView.bind(this, webview),
+            cls: 'reader-button',
+            tooltip: 'Toggle Reader View'
+          },
+          { content: this.iconUtils.newTab,
+            action: () =>
+			showUrlInput
+            ? this.openNewTab(inputId, true)
+            : this.openNewTabFromWebview(webview, true),
+			cls: 'newtab-button',
+            tooltip: 'Open in new tab'
+          },
+          { content: this.iconUtils.backgroundTab,
+            action: () =>
+			showUrlInput
+            ? this.openNewTab(inputId, false)
+            : this.openNewTabFromWebview(webview, false),
+		    cls: 'background-button',
+            tooltip: 'Open in background tab'
+          },
+	      { content: this.iconUtils.toggleBtn,
+			action: () => showUrlInput = !showUrlInput,
+			cls: 'toggle-button',
+			tooltip: 'Toggle url-input'
+          },
+	      { content: this.iconUtils.closeBtn,
+			action: () => this.removePreview(webviewId),
+			cls: 'close-button',
+			tooltip: 'Close preview'
+          }
+        ];
+        buttons.forEach(button =>
+          fragment.appendChild(
+            this.createOptionsButton(
+              button.content,
+              button.action,
+              button.cls || '',
+              button.tooltip
+            )
+	      )
+        );
+        if (input) fragment.appendChild(input);
+        thisElement.append(fragment);
+    } }
     createOptionsButton(content, clickListenerCallback, cls = '', tooltip = '') {
       const button = document.createElement('button');
       button.className = `options-button ${cls}`.trim();
