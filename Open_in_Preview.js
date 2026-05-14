@@ -3,11 +3,10 @@
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Open in Preview     *************************************************************************************************************
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  const KEYCODE_CONFIG = 'Ctrl+Alt+Period, Ctrl+Shift+F, Esc, Alt+Period'; // User defined
-  // First & second keys = searchForSelectedText(), third & fourth keys = removePreview(viewId)
+  const KEYCODE_CONFIG = 'Ctrl+Alt+Period, Ctrl+Shift+F, Esc, Alt+Period, Alt+/'; // User defined for constructor() Line 1607
+  // First & second keys = searchForSelectedText(), third & fourth keys = removePreview(viewId), fifth key = toggle url-input
   const IMAGE_CONFIG = { preview: '🖥️ ', }; // or 🔍
-  const PREVIEW_WINDOW_CONFIG = { height: 100, width: 100, }; // Percentage values
-
+  const PREVIEW_CONFIG = { height: 100, width: 100 }; // Percentage values
   const CONTEXT_MENU_CONFIG = {
     linkMenuTitle: 'Open in Preview',
     searchMenuTitle: 'Search in Preview',
@@ -16,28 +15,19 @@
   const ICON_CONFIG = {
     linkIcon: '',
     linkIconInteractionOnHover: false,
-    showIconDelay: 150,
-    showPreviewOnHoverDelay: 200,
+    showIconDelay: 100,
+    showPreviewOnHoverDelay: 100,
   };
   const TIMING_CONFIG = {
     closeTimeout: 800,
-    fade: 100,
-    fadeDelay: 100,
+    fade: 200,
+    fadeDelay: 200,
     middleClickDelay: 400,
-    optionsHideDelay: 100,
-	previewDelay: 100,
+    optionsHideDelay: 800,
+	previewDelay: 200,
     progressEasing: 0.12,
 	titleFetchDelay: 2000,
   };
-
-  setTimeout(function waitPreview() {
-    const browser = document.getElementById('browser');
-    if (!browser) {
-        return setTimeout(waitPreview, TIMING_CONFIG.previewDelay);
-    }
-    new PreviewWindow();
-  }, TIMING_CONFIG.previewDelay);
-
   const chromeAsync = {
     getLastFocusedWindow: () => new Promise(resolve => chrome.windows.getLastFocused(resolve)),
     getCurrentWindow: () => new Promise(resolve => chrome.windows.getCurrent(resolve)),
@@ -46,7 +36,49 @@
     getSelectedText: tabId => new Promise(resolve => vivaldi.utilities.getSelectedText(tabId, resolve))
   };
 
-  let showUrlInput = false;
+  let showUrlInput;
+
+  async function init() {
+	document.removeEventListener('DOMContentLoaded', init);
+    const SHOW_KEY = 'showUrlInput';
+    if (storage.getMod(SHOW_KEY) === null) {
+      await storage.setMod(SHOW_KEY, false);
+    }
+	let isEnab = await storage.getMod(SHOW_KEY, s.showUrlInput);
+	showUrlInput = isEnab;
+    waitForPreview();
+  }
+
+  function waitForPreview() {
+    const maxAttempts = 50;
+    let attempts = 0;
+    const delay = TIMING_CONFIG.previewDelay;
+    const poll = async () => {
+      const browser = document.getElementById('browser');
+      if (browser) {
+        try {
+          new PreviewWindow();
+          return;
+        } catch (err) {
+          console.error("Failed to create PreviewWindow:", err);
+          return;
+      } }
+      attempts++;
+      if (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, delay));
+        poll();
+      } else {
+        console.warn("Browser element not found after maximum attempts");
+      }
+    };
+    poll();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 
   class PreviewWindow {
     rootBrowser = document.getElementById('browser');
@@ -87,6 +119,7 @@
           webviewData = webviewValues.findLast(_data => _data.tabId === tabId);
         }
 		let viewId = webviewData.webview.id;
+		// KEYCODE_CONFIG = 'Ctrl+Alt+Period, Ctrl+Shift+F, Esc, Alt+Period, Alt+/'
         if (!KEYCODE_CONFIG || typeof KEYCODE_CONFIG !== 'string') return;
         const normalize = (str) => str.toLowerCase().replace(/\s+/g, '');
         const key_Code = KEYCODE_CONFIG.split(',').map(k => normalize(k)).filter(Boolean);
@@ -97,6 +130,8 @@
 		  this.searchForSelectedText();
         } else if (key_Position === third || key_Position === fourth) {
           this.removePreview(viewId);
+		} else if (key_Position === fifth) {
+          this.toggleInput();
 		}
       });
       new WebsiteInjectionUtils(
@@ -142,6 +177,10 @@
       const searchRequest = await vivaldi.searchEngines.getSearchRequest(engineId, selectionText);
       this.previewWindow(searchRequest.url);
     }
+	async toggleInput() {
+	  showUrlInput = !showUrlInput;
+	  await storage.setMod('showUrlInput', showUrlInput);
+	}
     removePreview(webviewId) {
       const data = this.webviews.get(webviewId);
       if (!data) return;
@@ -252,6 +291,21 @@
             this.showWebviewOptions(webviewId, optionsContainer);
             optionsContainer.classList.remove('fade-out');
             showingOptions = true;
+			const siteUrl = webview.src;
+			let btn = document.querySelector('.options-button');
+		    let inp = document.querySelector('.url-input');
+		    let len = inp.value.length;
+		    if (siteUrl.includes('youtube.com')) {
+		      if (this.rootBrowser.classList.contains('normal')) {
+		        if (len < 26) inp.style.marginRight = '-10.5vw';
+		        else inp.style.marginRight = '-4vw';
+			  } else {
+			    if (len < 26) el.style.marginRight = '-15.5vw';
+		        else inp.style.marginRight = '-11.70vw';
+			} }
+			if (siteUrl.includes('earth.google.com')) {
+		      inp.style.marginRight = '.3vw';
+			}
           }, fadeDuration);
         }
         clearTimeout(timeout);
@@ -281,8 +335,7 @@
           const input = document.getElementById(`input-${webview.id}`);
           if (input !== null) {
             input.value = webview.src;
-          }
-		}
+        } }
         isLoading = true;
 		webview.focus();
       });
@@ -392,67 +445,59 @@
       let webview = data ? data.webview : undefined;
       if (webview && document.getElementById(inputId) === null) {
         let input = null;
-      if (showUrlInput) {
-        input = document.createElement('input');
-        input.value = webview.src;
-        input.id = inputId;
-        input.setAttribute('class', 'url-input');
-        input.addEventListener('keydown', async event => {
-          if (event.key === 'Enter') {
-            let value = input.value;
-            const resolvedUrl = await UrlUtils.normalizeOrSearch(value, this.searchEngineUtils);
-            webview.src = resolvedUrl;
-          }
-        });
-      }
-      const fragment = document.createDocumentFragment(),
-        buttons = [
+        if (showUrlInput) {
+          input = document.createElement('input');
+          input.value = webview.src;
+          input.id = inputId;
+          input.setAttribute('class', 'url-input');
+          input.addEventListener('keydown', async event => {
+            if (event.key === 'Enter') {
+              let value = input.value;
+              const resolvedUrl = await UrlUtils.normalizeOrSearch(value, this.searchEngineUtils);
+              webview.src = resolvedUrl;
+            }
+          });
+		}
+        const fragment = document.createDocumentFragment();
+        const buttons = [
           { content: this.iconUtils.back, 
 			action: () => webview.back(),
 			cls: 'back-button',
-			tooltip: 'Back'
-		  },
+			tooltip: 'Back' },
           { content: this.iconUtils.forward,
 			action: () => webview.forward(),
 			cls: 'forward-button',
-			tooltip: 'Forward'
-		  },
+			tooltip: 'Forward' },
           { content: this.iconUtils.reload,
 			action: () => webview.reload(),
 			cls: 'reload-button',
-			tooltip: 'Reload page'
-		  },
+			tooltip: 'Reload page' },
           { content: this.iconUtils.readerView,
             action: this.showReaderView.bind(this, webview),
             cls: 'reader-button',
-            tooltip: 'Toggle Reader View'
-          },
+            tooltip: 'Toggle Reader View' },
           { content: this.iconUtils.newTab,
             action: () =>
 			showUrlInput
             ? this.openNewTab(inputId, true)
             : this.openNewTabFromWebview(webview, true),
 			cls: 'newtab-button',
-            tooltip: 'Open in new tab'
-          },
+            tooltip: 'Open in new tab' },
           { content: this.iconUtils.backgroundTab,
             action: () =>
 			showUrlInput
             ? this.openNewTab(inputId, false)
             : this.openNewTabFromWebview(webview, false),
 		    cls: 'background-button',
-            tooltip: 'Open in background tab'
-          },
-	      { content: this.iconUtils.toggleBtn,
-			action: () => showUrlInput = !showUrlInput,
-			cls: 'toggle-button',
-			tooltip: 'Toggle url-input'
-          },
+            tooltip: 'Open in background tab' },
+	      { content: this.iconUtils.toggleInput,
+			action: () => this.toggleInput(),
+			cls: 'toggle-input',
+			tooltip: 'Toggle url-input' },
 	      { content: this.iconUtils.closeBtn,
 			action: () => this.removePreview(webviewId),
 			cls: 'close-button',
-			tooltip: 'Close preview'
-          }
+			tooltip: 'Close preview' }
         ];
         buttons.forEach(button =>
           fragment.appendChild(
@@ -555,9 +600,9 @@
       : document.querySelector('.active.visible.webpageview')
       ).appendChild(previewContainer);
     }
-    applyInitialSizing(previewWindow, stackIndex) {
-	  previewWindow.style.width = PREVIEW_WINDOW_CONFIG.width * stackIndex + '%';
-      previewWindow.style.height = PREVIEW_WINDOW_CONFIG.height * stackIndex + '%';
+    async applyInitialSizing(previewWindow, stackIndex) {
+	  previewWindow.style.width = PREVIEW_CONFIG.width * stackIndex + '%';
+      previewWindow.style.height = PREVIEW_CONFIG.height * stackIndex + '%';
       previewWindow.style.visibility = 'hidden';
     }
     runOpenAnimation(previewWindow, previewContainer, pointerX, pointerY, setAnchoredTransformVars, durations) {
@@ -942,34 +987,34 @@
   class IconUtils {
     static SVG = {
       readerView:
-        '<svg xmlns="http://www.w3.org/2000/svg" width="1.5em" height="1.5em" viewBox="0 0 24 24"><path d="M5.525 17.056h8.75c.29 0 .525.323.525.722 0 .365-.198.668-.454.715l-.071.007h-8.75c-.29 0-.525-.323-.525-.722 0-.366.198-.668.454-.716zh8.75Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.006H5.525c-.29 0-.525-.323-.525-.722 0-.366.198-.668.454-.716zh12.95Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.007H5.525c-.29 0-.525-.324-.525-.723 0-.366.198-.668.454-.716zh12.95Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.006H5.525c-.29 0-.525-.323-.525-.722 0-.365.198-.668.454-.715zh12.95z"></path></svg>',
+        '<svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24"><path d="M5.525 17.056h8.75c.29 0 .525.323.525.722 0 .365-.198.668-.454.715l-.071.007h-8.75c-.29 0-.525-.323-.525-.722 0-.366.198-.668.454-.716zh8.75Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.006H5.525c-.29 0-.525-.323-.525-.722 0-.366.198-.668.454-.716zh12.95Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.007H5.525c-.29 0-.525-.324-.525-.723 0-.366.198-.668.454-.716zh12.95Zm0-3.852h12.95c.29 0 .525.323.525.722 0 .366-.198.668-.454.716l-.071.006H5.525c-.29 0-.525-.323-.525-.722 0-.365.198-.668.454-.715zh12.95z"></path></svg>',
       newTab:
-        '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32-14.3-32-32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>',
+        '<svg width="1rem" height="1rem" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32-14.3-32-32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>',
       backgroundTab:
-        '<svg xmlns="http://www.w3.org/2000/svg" height="1.1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c-13.3 0-24-10.7-24-24H160z"/></svg>',
-	  toggleBtn:
-		'<svg xmlns="http://www.w3.org/2000/svg" height="1.5em" width="1.5em" viewBox="0 0 24 24"><path d="M 16 15.395 a 0.5 0.5 0 0 1 0.762 -0.426 L 22.5 18.5 l -5.738 3.531 a 0.5 0.5 0 0 1 -0.762 -0.425 v -6.212 Z M 14 19 H 4 a 1 1 0 1 1 0 -2 h 10 v 2 Z m 6 -8 a 1 1 0 1 1 0 2 H 4 a 1 1 0 1 1 0 -2 h 16 Z m 0 -6 a 1 1 0 1 1 0 2 H 4 a 1 1 0 0 1 0 -2 h 16 Z"/></svg>',
+        '<svg width="1rem" height="1rem" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c-13.3 0-24-10.7-24-24H160z"/></svg>',
+	  toggleInput:
+		'<svg width="1.3rem" height="1.3rem" viewBox="0 0 24 24"><path d="M 7 7 H 17 V 10 L 21 6 L 17 2 V 5 H 5 V 11 H 7 V 7 Z M 17 17 H 7 V 14 L 3 18 L 7 22 V 19 H 19 V 13 H 17 V 17 Z"/></svg>',
 	  closeBtn:
-		'<svg xmlns="http://www.w3.org/2000/svg" height="1.5em" width="1.5em" viewBox="0 0 44 44"><path d="M38 12.83L35.17 10 24 21.17 12.83 10 10 12.83 21.17 24 10 35.17 12.83 38 24 26.83 35.17 38 38 35.17 26.83 24z"/></svg>',
+		'<svg width="1.5rem" height="1.5rem" viewBox="0 0 44 44"><path d="M38 12.83L35.17 10 24 21.17 12.83 10 10 12.83 21.17 24 10 35.17 12.83 38 24 26.83 35.17 38 38 35.17 26.83 24z"/></svg>',
     };
     static VIVALDI_BUTTONS = [
       {
         name: 'back',
         buttonName: 'Back',
         fallback:
-          '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M14.354 18 9 12l5.354-6 .646.725L10.297 12 15 17.271z"/></svg>'
+          '<svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24"><path d="M14.354 18 9 12l5.354-6 .646.725L10.297 12 15 17.271z"/></svg>'
       },
       {
         name: 'forward',
         buttonName: 'Forward',
         fallback:
-          '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M15 12 9.646 6 9 6.725 13.703 12 9 17.271l.646.729z"/></svg>'
+          '<svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24"><path d="M15 12 9.646 6 9 6.725 13.703 12 9 17.271l.646.729z"/></svg>'
       },
       {
         name: 'reload',
         buttonName: 'Reload',
         fallback:
-          '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12.2 6.367a5.833 5.833 0 1 0 5.77 4.971c-.052-.353.206-.694.563-.694.289 0 .542.2.586.485q.08.525.081 1.071a7 7 0 1 1-2.333-5.218v-.81a.583.583 0 1 1 1.166 0v2.334a.583.583 0 0 1-.583.583h-2.333a.583.583 0 0 1 0-1.167h1.049A5.8 5.8 0 0 0 12.2 6.367"/></svg>'
+          '<svg width="1.5rem" height="1.5rem" viewBox="0 0 24 24"><path d="M12.2 6.367a5.833 5.833 0 1 0 5.77 4.971c-.052-.353.206-.694.563-.694.289 0 .542.2.586.485q.08.525.081 1.071a7 7 0 1 1-2.333-5.218v-.81a.583.583 0 1 1 1.166 0v2.334a.583.583 0 0 1-.583.583h-2.333a.583.583 0 0 1 0-1.167h1.049A5.8 5.8 0 0 0 12.2 6.367"/></svg>'
       }
     ];
     #initialized = false;
@@ -1017,11 +1062,10 @@
     get backgroundTab() {
       return this.getIcon('backgroundTab');
     }
-	get toggleBtn() {
-      return this.getIcon('toggleBtn');
+	get toggleInput() {
+      return this.getIcon('toggleInput');
     }
 	get closeBtn() {
       return this.getIcon('closeBtn');
-    }
-  }
+  } }
 })();
