@@ -65,19 +65,25 @@
     }
     .options-container {
       align-items: center;
-	  background-color: #000;
-	  border: none;
-	  border-radius: 0.625rem;
+	  background-image: repeating-linear-gradient(
+	    135deg, 
+	    rgba(33, 33, 33, 1), 
+		rgba(0, 0, 0, 1) 1%, 
+		rgba(33, 33, 33, 1) 1%
+	  );
+	  opacity: 1;
+	  border-bottom: 1px solid #333;
+	  border-radius: 0rem;
       color: #FFF;
       display: flex;
       flex-direction: row;
       flex-wrap: nowrap;
-	  font-size: 120%;
+	  font-family: monospace;
+      font-size: 1.125rem;
       gap: .75rem;
       height: 2rem;
       justify-content: center;
 	  margin: 0rem;
-	  min-width: 22vw;
       opacity: 1;
       text-align: center;
       z-index: 9999;
@@ -85,13 +91,14 @@
     .options-button {
       align-items: center;
       background: transparent;
-	  border: 1px solid transparent;
+	  border: none;
 	  border-radius: 0.25rem;
 	  color: #FFF;
       cursor: pointer;
       display: flex;
+	  fill: currentColor;
       flex: 0 0 2.5rem;
-      height: 1.875rem;
+	  height: 2rem;
       justify-content: center;
 	  padding-top: 0.125rem;
       position: relative;
@@ -122,14 +129,19 @@
 	  opacity: 1;
 	}
     .url-input {
-      background: #000;
+      background: transparent;
+	  border: none;
       color: #FFF;
-      border-radius: 0.25;
+      border-radius: 0.25rem;
       flex: 0 0 20%;
+	  font-family: monospace;
 	  height: 2rem;
-	  margin: 0px;
-      min-width: 22vw;
+	  margin: 0rem;
+	  min-width: 2rem;
       padding-left: 0.25rem;
+	  margin-right: -11vw;
+	  width: 32px;
+	  position: relative;
     }
     .progress-bar {
 	  background-color: #006600;
@@ -161,15 +173,10 @@
       position: relative;
     }
     &.reader-open .reader-button {
-  } }
+} } }
+#browser.normal .url-input {
+  margin-right: -12vw;
 }
-#browser.normal .preview-container {
-    & .preview-window {
-        .options-container .url-input {
-	  margin-right: -13%;
-} } }
-#browser.maximized .preview-container {
-    & .preview-window {
-        .options-container .url-input {
-	  margin-right: -17%;
-} } }
+#browser.maximized .url-input {
+  margin-right: -15vw;
+}
